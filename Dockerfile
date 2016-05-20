@@ -3,31 +3,29 @@ FROM ubuntu:xenial
 RUN set -x && \
     rabbitmq_version="3.6.2" && \
     rabbitmq_web_mqtt_revision="3b6a09b" && \
-    rabbitmq_sha256="87217c0b135c6705f1d9ac2fcdbc355eeb3b0f53562c4f430e79861b0b7057b8" && \
-    rabbitmq_web_mqtt_sha256="7cb9869759c8493e28a7bcf3c25e3b9f2e0eedb14ae279f39055cbfe67d1a094" && \
+    rabbitmq_web_mqtt_sha256="63eb88f986ab47340ecf0c16997924b711c4baff35e99afffe255b92336f7d17" && \
     apt-get update && \
-    apt-get install -y --no-install-recommends wget ca-certificates erlang-nox logrotate socat && \
+    apt-get install -y --no-install-recommends wget bzip2 ca-certificates erlang-nox logrotate socat && \
     tempdir="$(mktemp -d)" && \
     cd "$tempdir" && \
     wget -O rabbitmq.deb "https://rabbitmq.com/releases/rabbitmq-server/v${rabbitmq_version}/rabbitmq-server_${rabbitmq_version}-1_all.deb" && \
-    rabbitmq_actual_sha256=$(sha256sum rabbitmq.deb) && \
-    echo "sha256 expected: ${rabbitmq_sha256}  rabbitmq.deb" && \
-    echo "sha256 actual:   ${rabbitmq_actual_sha256}" && \
-    if [ "${rabbitmq_sha256}  rabbitmq.deb" != "$rabbitmq_actual_sha256" ]; then exit 999; fi && \
-    wget -O rabbitmq-web-mqtt.ez "https://f001.backblaze.com/file/sh4rk-pub/dockerfile/rabbitmq/rabbitmq_web_mqtt-${rabbitmq_web_mqtt_revision}.ez" && \
-    rabbitmq_web_mqtt_actual_sha256=$(sha256sum rabbitmq-web-mqtt.ez) && \
-    echo "sha256 expected: ${rabbitmq_web_mqtt_sha256}  rabbitmq-web-mqtt.ez" && \
+    wget -O rabbitmq.deb.asc "https://rabbitmq.com/releases/rabbitmq-server/v3.6.2/rabbitmq-server_${rabbitmq_version}-1_all.deb.asc" && \
+    gpg --keyserver pgp.mit.edu --recv-keys 0x056E8E56 && \
+    gpg --verify rabbitmq.deb.asc rabbitmq.deb && \
+    wget -O rabbitmq_web_mqtt.tar.bz2 "https://f001.backblaze.com/file/sh4rk-pub/dockerfile/rabbitmq/rabbitmq_web_mqtt-${rabbitmq_web_mqtt_revision}.tar.bz2" && \
+    rabbitmq_web_mqtt_actual_sha256=$(sha256sum rabbitmq_web_mqtt.tar.bz2) && \
+    echo "sha256 expected: ${rabbitmq_web_mqtt_sha256}  rabbitmq_web_mqtt.tar.bz2" && \
     echo "sha256 actual:   ${rabbitmq_web_mqtt_actual_sha256}" && \
-    if [ "${rabbitmq_web_mqtt_sha256}  rabbitmq-web-mqtt.ez" != "$rabbitmq_web_mqtt_actual_sha256" ]; then exit 999; fi && \
+    if [ "${rabbitmq_web_mqtt_sha256}  rabbitmq_web_mqtt.tar.bz2" != "$rabbitmq_web_mqtt_actual_sha256" ]; then exit 999; fi && \
     dpkg -i rabbitmq.deb && \
-    mv rabbitmq-web-mqtt.ez "/usr/lib/rabbitmq/lib/rabbitmq_server-${rabbitmq_version}/plugins/" && \
+    tar xvf rabbitmq_web_mqtt.tar.bz2 -C "/usr/lib/rabbitmq/lib/rabbitmq_server-${rabbitmq_version}/plugins/" && \
     cd / && \
     rm -r "$tempdir" && \
-    apt-get autoremove -y --purge wget && \
+    apt-get autoremove -y --purge wget bzip2 && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
 USER rabbitmq
 EXPOSE 5672 15672 1883 8883 15675
-VOLUME ["/var/lib/rabbitmq"]
+VOLUME ["/var/lib/rabbitmq", "/etc/rabbitmq"]
 ENTRYPOINT ["/usr/sbin/rabbitmq-server"]
